@@ -511,6 +511,8 @@ jobs:
         cp physx/install/${{ matrix.config.preset }}/PhysX/bin/win.x86_64.vc142.${{ matrix.config.runtime }}/${{ matrix.config.buildtype }}/* dist-windows/
         echo "Show files in dist-windows:"
         ls -l dist-windows/
+        echo "Remove bin directory since it should not be included in header artifact..."
+        rm -rf physx/install/${{ matrix.config.preset }}/PhysX/bin
 
     - name: Upload Artifact (.lib)
       uses: actions/upload-artifact@v4
@@ -523,7 +525,7 @@ jobs:
       if: ${{ matrix.config.buildtype == 'release' }}
       with:
         name: cpp-header-windows
-        path: physx/install/vc16win64/*
+        path: physx/install/${{ matrix.config.preset }}/*
 
   create-windows-package:
     if: github.event_name == 'release'
@@ -570,6 +572,10 @@ jobs:
     permissions:
       contents: write
     steps:
+    - name: Install dos2unix
+      run: |
+        sudo apt install dos2unix
+
     - name: Download cpp-header Artifacts (unix)
       uses: actions/download-artifact@v4
       with:
@@ -585,8 +591,10 @@ jobs:
     - name: Merge Headers
       run: |
         mkdir -p artifacts/merged-headers
-        cp -r artifacts/cpp-header-windows/* artifacts/merged-headers/
-        cp -r artifacts/cpp-header-unix/* artifacts/merged-headers/
+        rsync -av --ignore-existing artifacts/cpp-header-windows/ artifacts/merged-headers/
+        rsync -av --ignore-existing artifacts/cpp-header-unix/ artifacts/merged-headers/
+        echo "Fix line endings ..."
+        find artifacts/merged-headers -type f -exec dos2unix {} \;
 
     - name: Upload Merged Headers Artifact
       uses: actions/upload-artifact@v4
